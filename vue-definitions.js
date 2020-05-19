@@ -218,7 +218,7 @@ window.app = new Vue({
         let doublingTime = urlParameters.get('doublingtime');
         this.doublingTime = doublingTime;
       }
-      
+
       if (urlParameters.has('select')) {
         this.mySelect = urlParameters.get('select').toLowerCase();
       }
@@ -227,20 +227,25 @@ window.app = new Vue({
 
     window.addEventListener('keydown', e => {
 
-      if ((e.key == ' ') && this.dates.length > 0) {
-        this.play();
+      if (this.dates.length > 0) {
+        switch (e.key) {
+          case ' ':
+            this.play();
+            break;
+          case '-':
+          case '_': // That is, shifted '-'
+            this.paused = true;
+            this.day = Math.max(this.day - 1, this.minDay);
+            break;
+          case '+':
+          case '=': // That is, unshifted '+'
+            this.paused = true;
+            this.day = Math.min(this.day + 1, this.dates.length);
+            break;
+          default:
+            break;
+        }
       }
-
-      else if ((e.key == '-' || e.key == '_') && this.dates.length > 0) {
-        this.paused = true;
-        this.day = Math.max(this.day - 1, this.minDay);
-      }
-
-      else if ((e.key == '+' || e.key == '=') && this.dates.length > 0) {
-        this.paused = true;
-        this.day = Math.min(this.day + 1, this.dates.length);
-      }
-
     });
 
   },
@@ -400,7 +405,7 @@ window.app = new Vue({
 
       } else {
         grouped = this.filterByCountry(data, dates, selectedRegion)
-          .filter(e => !regionsToPullToCountryLevel.includes(e.region)); // also filter our Hong Kong and Macau as subregions of Mainland China
+          .filter(e => !regionsToPullToCountryLevel.includes(e.region)); // also filter out Hong Kong and Macau as subregions of Mainland China
       }
 
       let exclusions = ['Cruise Ship', 'Diamond Princess'];
@@ -419,18 +424,20 @@ window.app = new Vue({
           for (let date of dates) {
             arr.push(row[date]);
           }
-          let slope = arr.map((e, i, a) => e - a[i - this.lookbackTime]);
+          let delta = arr.map((e, i, a) => e - a[i - this.lookbackTime]);
           let region = row.region;
 
           if (Object.keys(renames).includes(region)) {
             region = renames[region];
           }
 
+          // Suppress values below this.minCasesInCountry (replace with NaN)
           const cases = arr.map(e => e >= this.minCasesInCountry ? e : NaN);
+          const deltaNaN = delta.map((e, i) => arr[i] >= this.minCasesInCountry ? e : NaN); // suppress same as cases, Why??
           covidData.push({
             country: region,
             cases,
-            slope: slope.map((e, i) => arr[i] >= this.minCasesInCountry ? e : NaN),
+            delta: deltaNaN,  // An array?
             maxCases: this.myMax(...cases)
           });
 
@@ -451,16 +458,16 @@ window.app = new Vue({
       // but do not overwrite selected locations if 1. selected locations loaded from URL. 2. We switch between confirmed cases <-> deaths
       if ((this.selectedCountries.length === 0 || !this.firstLoad) && updateSelectedCountries) {
         this.selectedCountries = this.countries.filter(e => topCountries.includes(e) || notableCountries.includes(e));
-        
+
         this.defaultCountries = this.selectedCountries; // Used for createURL default check
-        
+
         if (this.mySelect == 'all') {
           this.selectedCountries = this.countries;
         } else if (this.mySelect == 'none') {
           this.selectedCountries = [];
         }
         this.mySelect = '';
-      
+
       }
 
       this.firstLoad = false;
@@ -556,9 +563,9 @@ window.app = new Vue({
     toggleHide() {
       this.isHidden = !this.isHidden;
     },
-    
+
     createURL() {
-      
+
       let queryUrl = new URLSearchParams();
 
       if (this.selectedScale == 'Linear Scale') {
@@ -575,10 +582,10 @@ window.app = new Vue({
 
       // since this rename came later, use the old name for URLs to avoid breaking existing URLs
       let renames = {'China (Mainland)': 'China'};
-            
+
       if (!this.showTrendLine) {
         queryUrl.append('trendline', this.showTrendLine);
-      } 
+      }
 
       else if (this.doublingTime != 2) {
         queryUrl.append('doublingtime', this.doublingTime);
@@ -589,14 +596,14 @@ window.app = new Vue({
       // so instead we check if the countries list does not include any of the selected countries
       if (!this.countries.some(country => this.selectedCountries.includes(country))) {
         queryUrl.append('select', 'none');
-      } 
+      }
 
       // check if all countries selected
       // edge case: since selectedCountries may be larger than the country list (e.g. when switching from Confirmed Cases to Deaths), we can't simply compare array contents
       // so instead we check if the countries list is a proper subset of selectedCountries
       else if (this.countries.every(country => this.selectedCountries.includes(country))) {
         queryUrl.append('select', 'all');
-      } 
+      }
 
       // else check if selection is different from default countries
       else if (JSON.stringify(this.selectedCountries.sort()) !== JSON.stringify(this.defaultCountries)) {
@@ -632,7 +639,7 @@ window.app = new Vue({
     },
 
     minDay() {
-      let minDay = this.myMin(...(this.filteredCovidData.map(e => e.slope.findIndex(f => f > 0)).filter(x => x != -1)));
+      let minDay = this.myMin(...(this.filteredCovidData.map(e => e.delta.findIndex(f => f > 0)).filter(x => x != -1)));
       if (isFinite(minDay) && !isNaN(minDay)) {
         return minDay + 1;
       } else {
@@ -719,7 +726,7 @@ window.app = new Vue({
       // draws grey lines (line plot for each location)
       let trace1 = this.filteredCovidData.map((e, i) => ({
         x: e.cases.slice(0, this.day),
-        y: e.slope.slice(0, this.day),
+        y: e.delta.slice(0, this.day),
         name: e.country,
         text: this.dates.map(date => e.country + '<br>' + this.formatDate(date)),
         mode: showDailyMarkers ? 'lines+markers' : 'lines',
@@ -733,14 +740,24 @@ window.app = new Vue({
           color: 'rgba(0,0,0,0.15)'
         },
         hoverinfo: 'x+y+text',
-        hovertemplate: '%{text}<br>Total ' + this.selectedData + ': %{x:,}<br>Weekly ' + this.selectedData + ': %{y:,}<extra></extra>',
+        hoverlabel: {
+          align: 'left'
+        },
+        hovertemplate:
+          '%{text}' +
+          '<br>' +
+          '%{y:8,}' + ': ' + 'Weekly ' + this.selectedData +
+          '<br>' +
+          '%{x:8,}' + ': ' +'Total ' + this.selectedData +
+          '<extra></extra>' +
+          '',
       })
       );
 
       // draws red dots (most recent data for each location)
       let trace2 = this.filteredCovidData.map((e, i) => ({
         x: [e.cases[this.day - 1]],
-        y: [e.slope[this.day - 1]],
+        y: [e.delta[this.day - 1]],
         text: e.country,
         name: e.country,
         mode: this.showLabels ? 'markers+text' : 'markers',
@@ -750,7 +767,17 @@ window.app = new Vue({
           size: 6,
           color: 'rgba(254, 52, 110, 1)'
         },
-        hovertemplate: '%{data.text}<br>Total ' + this.selectedData + ': %{x:,}<br>Weekly ' + this.selectedData + ': %{y:,}<extra></extra>',
+        hoverlabel: {
+          align: 'left'
+        },
+        hovertemplate:
+          '%{data.text}' +
+          '<br>' +
+          '%{y:8,}' + ': ' + 'Weekly ' + this.selectedData +
+          '<br>' +
+          '%{x:8,}' + ': ' + 'Total ' + this.selectedData +
+          '<extra></extra>' +
+          '',
 
       }));
 
@@ -817,19 +844,19 @@ window.app = new Vue({
     },
 
     ymax() {
-      return Math.max(...this.filteredSlope, 50);
+      return Math.max(...this.filteredDelta, 50);
     },
 
     ymin() {
-      return Math.min(...this.filteredSlope);
+      return Math.min(...this.filteredDelta);
     },
 
     filteredCases() {
       return Array.prototype.concat(...this.filteredCovidData.map(e => e.cases)).filter(e => !isNaN(e));
     },
 
-    filteredSlope() {
-      return Array.prototype.concat(...this.filteredCovidData.map(e => e.slope)).filter(e => !isNaN(e));
+    filteredDelta() {
+      return Array.prototype.concat(...this.filteredCovidData.map(e => e.delta)).filter(e => !isNaN(e));
     },
 
     logxrange() {
@@ -850,7 +877,7 @@ window.app = new Vue({
     },
 
     linearyrange() {
-      let ymax = Math.max(...this.filteredSlope, 50);
+      let ymax = Math.max(...this.filteredDelta, 50);
       return [-Math.pow(10, Math.floor(Math.log10(ymax)) - 2), Math.round(1.05 * ymax)];
     },
 
@@ -917,7 +944,7 @@ window.app = new Vue({
 
     selectedScale: 'Logarithmic Scale',
 
-    minCasesInCountry: 50,
+    minCasesInCountry: 10,
 
     dates: [],
 
@@ -927,8 +954,8 @@ window.app = new Vue({
 
     visibleCountries: [], // used for search
 
-    selectedCountries: [], // used to manually select countries 
-    
+    selectedCountries: [], // used to manually select countries
+
     defaultCountries: [], // used for createURL default check
 
     isHidden: true,
@@ -938,7 +965,7 @@ window.app = new Vue({
     showTrendLine: true,
 
     doublingTime: 2,
-    
+
     mySelect: '',
 
     searchField: '',
