@@ -748,7 +748,7 @@ window.app = new Vue({
           '<br>' +
           '%{y:8,}' + ': ' + 'Weekly ' + this.selectedData +
           '<br>' +
-          '%{x:8,}' + ': ' +'Total ' + this.selectedData +
+          '%{x:8,}' + ': ' + 'Total ' + this.selectedData +
           '<extra></extra>' +
           '',
       })
@@ -944,7 +944,7 @@ window.app = new Vue({
 
     selectedScale: 'Logarithmic Scale',
 
-    minCasesInCountry: 10,
+    minCasesInCountry: 50,
 
     dates: [],
 
