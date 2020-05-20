@@ -25,7 +25,6 @@ Vue.component('graph', {
       if (name) {
 
         this.traceIndices = this.graphData.traces.map((e, i) => e.name == name ? i : -1).filter(e => e >= 0);
-        // this.traceIndices used again in onHoverOff(_)
         let update = {'line': {color: 'rgba(254, 52, 110, 1)'}};
 
         Plotly.restyle(this.$refs.graph, update, this.traceIndices);
@@ -39,8 +38,6 @@ Vue.component('graph', {
 
       Plotly.restyle(this.$refs.graph, update, this.traceIndices);
       
-    },
-
     },
 
     onLayoutChange(data) {
