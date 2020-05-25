@@ -19,22 +19,42 @@ Vue.component('graph', {
 
     onHoverOn(data) {
 
+      console.log("data.points.length", data.points.length);
+      console.log("data.points[0]", data.points[0]);
       let curveNumber = data.points[0].curveNumber;
       let name = this.graphData.traces[curveNumber].name;
 
       if (name) {
 
         this.traceIndices = this.graphData.traces
-          // .map((e, i) => e.name == name ? i : -1).filter(e => e >= 0); // original code
-          // .reduce((arr, e, i) => [...arr, ...e.name === name ? [i] : []], []);
-          // .reduce((arr, e, i) => e.name === name ? [...arr, i] : arr, []);
-          // .reduce((arr, {name: n}, i) => n === name ? [...arr, i] : arr, []);
-          // .flatMap(({name: n}, i) => n === name ? i : []);
-          // .flatMap(({name: n}, i) => n === name ? [i] : []);
-          // .flatMap((e, i) => e.name === name ? [i] : []);
-          // .flatMap((e, i) => e.name === name ? i : []);
-          .flatMap((e, i) => e.name === name ? i : null);
-          let update = {'line': {color: 'rgba(254, 52, 110, 1)'}};
+          // .map((e, i) => e.name == name ? i : -1).filter(e => e >= 0); // original two-pass code // => [ 5, 11 ]
+          // .reduce((arr, e, i) => [...arr, ...e.name === name ? [i] : []], []); // => [ 5, 11 ]
+          // .reduce((arr, e, i) => e.name === name ? [...arr, i] : arr, []);  // => [ 5, 11 ]
+          // .reduce((arr, {name: n}, i) => n === name ? [...arr, i] : arr, []); // => [ 5, 11 ]
+          // .flatMap(({name: n}, i) => n === name ? i : []); // => [ 5, 11 ]
+          // .flatMap(({name: n}, i) => n === name ? [i] : []); // => [ 5, 11 ]
+          // .flatMap((e, i) => e.name === name ? [i] : []); // => [ 5, 11 ]
+          .flatMap((e, i) => e.name === name ? i : []); // => [ 5, 11 ]
+
+          // Some failures:  null, undefined, -1. NaN
+        
+          // .flatMap((e, i) => e.name === name ? i : null); // Array(13) [ null, null, null, 3, null, null, null, null, null, 9, … ]
+          /* console.trace() WARN: trace index ( null ) is not a number or is out of bounds */
+        
+          // .flatMap((e, i) => e.name === name ? i : undefined);
+          /* Array(13) [ undefined, undefined, undefined, undefined, undefined, 5, undefined, undefined, undefined, undefined, … ]
+            console.trace() WARN: trace index ( undefined ) is not a number or is out of bounds 
+          */
+
+          // .flatMap((e, i) => e.name === name ? i : -1);
+          /* Array(13) [ -1, -1, -1, -1, -1, 5, -1, -1, -1, -1, … ]
+            console.trace() WARN: trace index ( -1 ) is not a number or is out of bounds */
+          
+          // .flatMap((e, i) => e.name === name ? i : NaN); 
+          /* Array(13) [ NaN, NaN, NaN, NaN, NaN, 5, NaN, NaN, NaN, NaN, … ]
+            console.trace() WARN: trace index ( NaN ) is not a number or is out of bounds */
+          
+        let update = {'line': {color: 'rgba(254, 52, 110, 1)'}};
 
         Plotly.restyle(this.$refs.graph, update, this.traceIndices);
       }
