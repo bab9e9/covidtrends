@@ -24,24 +24,30 @@ Vue.component('graph', {
 
       if (name) {
 
-        this.traceIndices = this.graphData.traces.map((e, i) => e.name == name ? i : -1).filter(e => e >= 0);
-        let update = {'line': {color: 'rgba(254, 52, 110, 1)'}};
+        this.traceIndices = this.graphData.traces
+          // .map((e, i) => e.name == name ? i : -1).filter(e => e >= 0); // original code
+          // .reduce((arr, e, i) => [...arr, ...e.name === name ? [i] : []], []);
+          // .reduce((arr, e, i) => e.name === name ? [...arr, i] : arr, []);
+          // .reduce((arr, {name: n}, i) => n === name ? [...arr, i] : arr, []);
+          // .flatMap(({name: n}, i) => n === name ? i : []);
+          // .flatMap(({name: n}, i) => n === name ? [i] : []);
+          // .flatMap((e, i) => e.name === name ? [i] : []);
+          // .flatMap((e, i) => e.name === name ? i : []);
+          .flatMap((e, i) => e.name === name ? i : null);
+          let update = {'line': {color: 'rgba(254, 52, 110, 1)'}};
 
-        for (let i of this.traceIndices) {
-          Plotly.restyle(this.$refs.graph, update, [i]);
-        }
+        Plotly.restyle(this.$refs.graph, update, this.traceIndices);
       }
 
     },
 
-    onHoverOff() {
+    /*eslint no-unused-vars: ["error", { "argsIgnorePattern": "^_" }]*/
+    onHoverOff(_data) {
 
       let update = {'line': {color: 'rgba(0,0,0,0.15)'}};
 
-      for (let i of this.traceIndices) {
-        Plotly.restyle(this.$refs.graph, update, [i]);
-      }
-
+      Plotly.restyle(this.$refs.graph, update, this.traceIndices);
+      
     },
 
     onLayoutChange(data) {
