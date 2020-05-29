@@ -25,6 +25,9 @@ Vue.component('graph', {
       let name = this.graphData.traces[curveNumber].name;
 
       if (name) {
+        // Typically there are two "indices" that match the name of the "curveNumber"
+        // One is for the "curve" and one is for the "dot" at the end of the curve.
+        // Currently, they are treated the same, both are turned red.
 
         this.traceIndices = this.graphData.traces
           // .map((e, i) => e.name == name ? i : -1).filter(e => e >= 0); // original two-pass code // => [ 5, 11 ]
